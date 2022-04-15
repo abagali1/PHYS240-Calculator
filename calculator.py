@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import warnings
 
 from math import exp
@@ -8,7 +9,6 @@ from getpass import getpass
 from urllib.parse import urlparse, parse_qs
 
 from selenium import webdriver
-from selenium.webdriver.support.ui import Select
 
 warnings.filterwarnings("ignore", category=DeprecationWarning) 
 
@@ -58,18 +58,17 @@ def scrape_canvas(driver):
         del quiz_grades[1], quiz_totals[1]
     elif sort_type == "Due Date":
         assignments = [x.text.split("\n")[0] for x in driver.find_elements_by_css_selector("th.title")[:-3]]
-        quizzes = [i for i in range(len(assignments)) if "Quiz" in assignments[i]]
+        quizzes = sorted(i for i in range(len(assignments)) if "Quiz" in assignments[i])[::-1]
         for i in quizzes:
             quiz_grades.append(all_points[i])
             quiz_totals.append(all_totals[i])
             del assignments[i]
             del all_points[i], all_totals[i]
-        del quiz_grades[0], quiz_totals[0]
-
+        del quiz_grades[-1], quiz_totals[-1]
         async_clicker_assignments = len(assignments)//2  
         for i in range(0, async_clicker_assignments):
             final_clicker_points.append(all_points[i])
-            final_clicker_points.append(all_points[i+async_clicker_assignments+1])
+            final_clicker_points.append(all_points[i+async_clicker_assignments])
     else:
         quiz_grades = all_points[-6:]
         quiz_totals = [int(n) for x in driver.find_elements_by_css_selector("td.possible.points_possible")[-9:] if (n := x.text)]
@@ -78,7 +77,7 @@ def scrape_canvas(driver):
 
     final_quiz_scores = [int(x)/y for x, y in zip(quiz_grades, quiz_totals)]
     final_quiz_scores.remove(min(final_quiz_scores))
-    return (sum(final_quiz_scores)/5)*100, clean_clicker_points(final_clicker_points)
+    return (sum(final_quiz_scores)/5), clean_clicker_points(final_clicker_points)
 
 def scrape_flipit(driver):
     return sum((float(i.text[:-1])/100)*y for x,y in [("pl", 10), ("cp", 10), ("hw", 30)] for i in driver.find_elements_by_css_selector(f"span.gradebook-numberOnly.{x}")) 
@@ -87,6 +86,7 @@ def main():
     username = input("Uniqname: ")
     canvas_password = getpass("Canvas Password: ")
     flipit_password = getpass("FlipIt Password: ")
+    os.system("clear")
 
     driver = webdriver.Firefox()
     canvas_login(driver, username, canvas_password)
@@ -103,12 +103,12 @@ def main():
     y = 1 - 0.01*Y
 
     thresholds = [(82, "A-"), (86, "A"), (96, "A+")]
-    F = [4*(((z-Y)/y) - .75*Q) for z in [82, 86, 96]]
+    F = [4*(((z-Y)/y) - 75*Q) for z in [82, 86, 96]]
 
     print(f"Quiz Average {Q}")
 
     print(f"Extra Credit Earned {s}/{E}")
-    print(f"Y: {Y} {y}")
+    print(f"Y: {Y}")
     print("Final Grade Requirements: ")
     for letter, grd in zip(thresholds, F):
         print(f"\t{letter[1]}: {int(grd)+1}") 
